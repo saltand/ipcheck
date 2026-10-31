@@ -1,0 +1,11 @@
+node_modules/
+.wrangler/
+dist/
+*.tgz
+*.png
+shot-*.png
+screenshot.png
+.DS_Store
+.env
+.env.*
+*.log

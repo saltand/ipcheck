@@ -1,0 +1,14 @@
+{
+  "name": "ipcheck-worker",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "wrangler": "^4"
+  },
+  "license": "MIT",
+  "author": "saltand (https://github.com/saltand)"
+}

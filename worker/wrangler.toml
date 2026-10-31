@@ -1,0 +1,13 @@
+name = "ipcheck"
+main = "src/index.js"
+compatibility_date = "2026-05-01"
+workers_dev = true
+
+[[routes]]
+pattern = "ip.saltand.xyz"
+custom_domain = true
+
+[[rules]]
+type = "Text"
+globs = ["**/*.sh", "**/*.html"]
+fallthrough = true

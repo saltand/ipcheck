@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ipcheck</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#1e1e2e;color:#cdd6f4;font:13px/1.45 ui-monospace,"SF Mono",Menlo,"Noto Sans Mono CJK SC",Consolas,monospace;padding:16px 18px 40px;max-width:960px}
+h1{font-size:13px;font-weight:700;margin-bottom:10px;color:#cdd6f4}
+h1 span{color:#6c7086;font-weight:400}
+.g{margin:14px 0 4px;color:#89b4fa;font-weight:700}
+table{border-collapse:collapse;width:100%;table-layout:fixed}
+th,td{text-align:left;padding:1px 10px 1px 0;vertical-align:top;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+th{color:#6c7086;font-weight:400}
+td.site{width:22%}
+td.ip{width:34%}
+td.loc{width:14%;color:#6c7086}
+td.lat{width:10%}
+td.st{width:20%}
+.ok{color:#a6e3a1}.err{color:#f38ba8}.dim{color:#6c7086}
+.lat-g{color:#a6e3a1}.lat-y{color:#f9e2af}.lat-r{color:#f38ba8}
+.pal0{color:#a6e3a1}.pal1{color:#94e2d5}.pal2{color:#cba6f7}.pal3{color:#f9e2af}
+.pal4{color:#89b4fa}.pal5{color:#f38ba8}.pal6{color:#a6e3a1}.pal7{color:#89dceb}
+#sum{margin-top:16px}
+#sum .ip{font-weight:700}
+#sum .meta{color:#6c7086}
+#sum .sites{color:#6c7086;padding-left:2ch;margin-bottom:4px}
+#verdict{margin-top:10px}
+.foot{margin-top:22px;color:#585b70;font-size:12px;line-height:1.6}
+.foot a{color:#585b70}
+.busy{color:#6c7086}
+</style>
+</head>
+<body>
+<h1>ipcheck <span id="hdr">— checking…</span></h1>
+<div id="out" class="busy">loading…</div>
+<div id="sum"></div>
+<div id="verdict"></div>
+<div class="foot">
+curl -fsSL __ORIGIN__/sh | bash<br>
+npx @saltand/ipcheck
+</div>
+<script>
+(function(){
+const TIMEOUT=5000;
+const GROUPS=['cn','social','ai','crypto','tools','dev','media'];
+const SITES=[
+  ['cn','www.cloudflare-cn.com','www.cloudflare-cn.com','cf'],
+  ['cn','www.qualcomm.cn','www.qualcomm.cn','cf'],
+  ['cn','网易','https://necaptcha.nosdn.127.net/ab7f4275c1744aa28e0a8f3a1c58c532.png','netease'],
+  ['cn','字节跳动','https://perfops.byte-test.com/500b-bench.jpg','bytedance'],
+  ['social','discord','gateway.discord.gg','cf'],
+  ['social','x.com','x.com','cf'],
+  ['social','medium.com','medium.com','cf'],
+  ['social','signal.org','signal.org','cf'],
+  ['ai','anthropic.com','anthropic.com','cf'],
+  ['ai','claude.ai','claude.ai','cf'],
+  ['ai','chatgpt.com','chatgpt.com','cf'],
+  ['ai','openai.com','openai.com','cf'],
+  ['ai','sora.com','sora.com','cf'],
+  ['ai','grok.com','grok.com','cf'],
+  ['ai','pixpix.com','pixpix.com','cf'],
+  ['ai','www.perplexity.ai','www.perplexity.ai','cf'],
+  ['ai','midjourney.com','midjourney.com','cf'],
+  ['ai','mistral.ai','mistral.ai','cf'],
+  ['crypto','coinbase.com','coinbase.com','cf'],
+  ['crypto','www.okx.com','www.okx.com','cf'],
+  ['crypto','binance','www.binance.info','cf'],
+  ['crypto','crypto.com','crypto.com','cf'],
+  ['tools','zoom.us','zoom.us','cf'],
+  ['tools','1password.com','1password.com','cf'],
+  ['tools','wise.com','wise.com','cf'],
+  ['tools','poe.com','poe.com','cf'],
+  ['tools','notion.so','notion.so','cf'],
+  ['tools','shopify.com','shopify.com','cf'],
+  ['tools','godaddy.com','godaddy.com','cf'],
+  ['tools','producthunt.com','producthunt.com','cf'],
+  ['dev','www.cloudflare.com','www.cloudflare.com','cf'],
+  ['dev','cdnjs.cloudflare.com','cdnjs.cloudflare.com','cf'],
+  ['dev','registry.npmjs.org','registry.npmjs.org','cf'],
+  ['dev','kali.download','kali.download','cf'],
+  ['dev','unpkg.com','unpkg.com','cf'],
+  ['dev','nodejs.org','nodejs.org','cf'],
+  ['dev','gitlab.com','gitlab.com','cf'],
+  ['media','crunchyroll.com','crunchyroll.com','cf'],
+];
+const PAL=['pal0','pal1','pal2','pal3','pal4','pal5','pal6','pal7'];
+const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+function errName(e){
+  if(e&& (e.name==='TimeoutError'||e.name==='AbortError')) return 'timeout';
+  const m=(e&&e.message)||String(e);
+  if(/Failed to fetch|NetworkError|CORS/i.test(m)) return 'cors/network';
+  return m.slice(0,36);
+}
+async function cftrace(domain){
+  const t0=performance.now();
+  const res=await fetch('https://'+domain+'/cdn-cgi/trace',{signal:AbortSignal.timeout(TIMEOUT)});
+  const text=await res.text();
+  const ms=Math.round(performance.now()-t0);
+  const kv=Object.fromEntries(text.split('\n').map(l=>l.split('=')).filter(p=>p.length>=2).map(([k,...v])=>[k.trim(),v.join('=').trim()]));
+  if(!kv.ip) throw new Error('HTTP '+res.status+', no ip');
+  return {ip:kv.ip,loc:kv.loc||'',ms};
+}
+async function headerIp(url, pick, preferGet){
+  const t0=performance.now();
+  const opts={signal:AbortSignal.timeout(TIMEOUT),cache:'no-store'};
+  let res;
+  if(preferGet){
+    res=await fetch(url,{...opts,method:'GET'});
+  } else {
+    try{ res=await fetch(url,{...opts,method:'HEAD'}); }
+    catch(_){ res=await fetch(url,{...opts,method:'GET'}); }
+  }
+  const ms=Math.round(performance.now()-t0);
+  const ip=pick(res.headers);
+  if(!ip) throw new Error('HTTP '+res.status+', no ip');
+  return {ip:ip.trim(),loc:'',ms};
+}
+async function check(site){
+  const [group,label,target,method]=site;
+  try{
+    let r;
+    if(method==='cf') r=await cftrace(target);
+    else if(method==='netease') r=await headerIp(target,h=>h.get('cdn-user-ip'),false);
+    else r=await headerIp(target,h=>{
+      const a=h.get('x-request-ip'); if(a) return a;
+      const c=h.get('x-response-cinfo')||'';
+      const m=c.match(/(\d{1,3}(?:\.\d{1,3}){3}|[0-9a-fA-F]*:[0-9a-fA-F:]{2,})/);
+      return m&&m[1];
+    },true);
+    return {group,site:label,ok:true,ip:r.ip,loc:r.loc,ms:r.ms};
+  }catch(e){
+    return {group,site:label,ok:false,error:errName(e)};
+  }
+}
+async function geo(ip){
+  try{
+    const r=await fetch('https://api.ip.sb/geoip/'+ip,{signal:AbortSignal.timeout(TIMEOUT)});
+    if(r.ok){ const j=await r.json(); return {country:j.country||j.country_code||'',isp:j.isp||j.organization||'',asn:j.asn?('AS'+j.asn):''}; }
+  }catch(_){}
+  try{
+    const r=await fetch('https://ipwho.is/'+ip,{signal:AbortSignal.timeout(TIMEOUT)});
+    const j=await r.json();
+    if(j.success!==false) return {country:j.country||'',isp:(j.connection&& (j.connection.isp||j.connection.org))||'',asn:j.connection&&j.connection.asn?('AS'+j.connection.asn):''};
+  }catch(_){}
+  return null;
+}
+function latCls(ms){ return ms<300?'lat-g':ms<1000?'lat-y':'lat-r'; }
+function render(results, geoMap){
+  const ips=[...new Set(results.filter(r=>r.ok).map(r=>r.ip))];
+  const ipCls=ip=>'pal'+(ips.indexOf(ip)%PAL.length);
+  let html='';
+  for(const g of GROUPS){
+    const rows=results.filter(r=>r.group===g);
+    if(!rows.length) continue;
+    html+='<div class="g">▸ '+esc(g)+'</div><table><thead><tr><th class="site">SITE</th><th class="ip">IP</th><th class="loc">LOC</th><th class="lat">LATENCY</th><th class="st">STATUS</th></tr></thead><tbody>';
+    for(const r of rows){
+      const loc=r.loc||(r.ok&&geoMap[r.ip]&&geoMap[r.ip].country)||'-';
+      html+='<tr><td class="site">'+esc(r.site)+'</td>';
+      html+='<td class="ip">'+(r.ok?'<span class="'+ipCls(r.ip)+'">'+esc(r.ip)+'</span>':'<span class="dim">-</span>')+'</td>';
+      html+='<td class="loc">'+esc(loc)+'</td>';
+      html+='<td class="lat">'+(r.ms!=null?'<span class="'+latCls(r.ms)+'">'+r.ms+'ms</span>':'<span class="dim">-</span>')+'</td>';
+      html+='<td class="st">'+(r.ok?'<span class="ok">✓ ok</span>':'<span class="err">✗ '+esc(r.error)+'</span>')+'</td></tr>';
+    }
+    html+='</tbody></table>';
+  }
+  document.getElementById('out').innerHTML=html;
+  const ok=results.filter(r=>r.ok).length;
+  let sum='<div><b>Summary:</b> '+ips.length+' distinct exit IP(s), '+ok+'/'+results.length+' sites reachable</div>';
+  for(const ip of ips){
+    const g=geoMap[ip];
+    const meta=g?[g.country,g.isp,g.asn].filter(Boolean).join(' · '):'';
+    const sites=results.filter(r=>r.ip===ip).map(r=>r.site);
+    sum+='<div class="ip '+ipCls(ip)+'">'+esc(ip)+(meta?' <span class="meta">'+esc(meta)+'</span>':'')+'</div>';
+    sum+='<div class="sites">('+sites.length+') '+esc(sites.join(', '))+'</div>';
+  }
+  const failed=results.filter(r=>!r.ok);
+  if(failed.length) sum+='<div><span class="err">failed</span> <span class="dim">('+failed.length+') '+esc(failed.map(r=>r.site).join(', '))+'</span></div>';
+  document.getElementById('sum').innerHTML=sum;
+  const v=document.getElementById('verdict');
+  if(ips.length>1) v.innerHTML='<span class="lat-y">⚠ Split routing detected: different sites see different exit IPs.</span>';
+  else if(ips.length===1) v.innerHTML='<span class="ok">✓ All reachable sites see the same exit IP.</span>';
+  else v.innerHTML='<span class="err">No reachable sites.</span>';
+  document.getElementById('hdr').textContent='— '+(ips.length)+' exit IP(s), '+ok+'/'+results.length+' ok';
+}
+async function main(){
+  const results=await Promise.all(SITES.map(check));
+  render(results,{});
+  const ips=[...new Set(results.filter(r=>r.ok).map(r=>r.ip))];
+  const geoMap={};
+  await Promise.all(ips.map(async ip=>{ geoMap[ip]=await geo(ip); }));
+  render(results,geoMap);
+}
+main().catch(e=>{ document.getElementById('out').innerHTML='<span class="err">'+esc(e.message||e)+'</span>'; });
+})();
+</script>
+</body>
+</html>

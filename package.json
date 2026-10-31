@@ -1,0 +1,30 @@
+{
+  "name": "@saltand/ipcheck",
+  "version": "0.1.0",
+  "description": "Detect IP split / proxy routing per site in the terminal (like ip.net.coffee)",
+  "type": "module",
+  "bin": {
+    "ipcheck": "bin/ipcheck.js"
+  },
+  "files": [
+    "bin",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "ip",
+    "proxy",
+    "split",
+    "cdn-cgi",
+    "trace",
+    "cli"
+  ],
+  "author": "saltand (https://github.com/saltand)",
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  }
+}
