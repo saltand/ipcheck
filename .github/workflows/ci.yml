@@ -1,0 +1,83 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  node:
+    name: Node ${{ matrix.node }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [18, 22]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Syntax check
+        run: node --check bin/ipcheck.js
+      - name: Help and version
+        run: |
+          node bin/ipcheck.js --help | grep -q ipcheck
+          test "$(node bin/ipcheck.js --version)" = "0.1.0"
+      - name: Bad args exit 2
+        run: |
+          set +e
+          node bin/ipcheck.js --group zz >/dev/null 2>&1
+          test $? -eq 2
+      - name: Live check (cn group)
+        # Unreachable sites are row errors; CLI exits 0 unless args are invalid.
+        run: |
+          out=$(mktemp)
+          node bin/ipcheck.js --group cn --timeout 8000 --no-geo | tee "$out"
+          grep -qE 'ipcheck|SITE|▸ cn' "$out"
+      - name: npm pack
+        run: |
+          npm pack
+          test -f saltand-ipcheck-0.1.0.tgz
+
+  bash:
+    name: Bash
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install shellcheck
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck
+      - name: shellcheck
+        run: shellcheck -S warning ipsplit.sh
+      - name: Help and version
+        run: |
+          bash ipsplit.sh --help | grep -q ipsplit
+          test "$(bash ipsplit.sh --version)" = "0.1.0"
+      - name: Live check (cn group)
+        run: |
+          out=$(mktemp)
+          bash ipsplit.sh --group cn --timeout 5 --no-geo | tee "$out"
+          grep -qE 'ipsplit|SITE|▸ cn' "$out"
+
+  worker:
+    name: Worker
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: worker
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install
+        run: npm install
+      - name: Bundle dry-run (no CF credentials)
+        run: npx wrangler deploy --dry-run --outdir=/tmp/wrangler-out
+      - name: Assert bundle artifacts
+        run: |
+          test -f /tmp/wrangler-out/index.js
+          grep -q cdn-cgi /tmp/wrangler-out/*.html /tmp/wrangler-out/*page* 2>/dev/null \
+            || grep -q page /tmp/wrangler-out/index.js
+          test -e ipsplit.sh

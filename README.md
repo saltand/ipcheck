@@ -50,6 +50,13 @@ curl -fsSL https://ip.saltand.xyz/sh | bash -s -- --group ai
 cd worker && npm i && npx wrangler dev   # local Worker
 ```
 
+
+## CI & npm
+
+GitHub Actions **CI** runs on every push/PR to `main` (Node 18/22, shellcheck + bash, Worker dry-run).
+
+To publish `@saltand/ipcheck` to npm: add repo secret `NPM_TOKEN` (npm Automation token with publish for `@saltand`), then create a GitHub Release — workflow `Publish npm` runs `npm publish --provenance --access public`. Or publish manually from the repo root after `npm login`.
+
 ## License
 
 MIT © [saltand](https://github.com/saltand)
