@@ -160,7 +160,6 @@ function render(results, geoMap){
   }
   document.getElementById('out').innerHTML=html;
   const ok=results.filter(r=>r.ok).length;
-  const ok=results.filter(r=>r.ok).length;
   document.getElementById('hdr').textContent='— '+(ips.length)+' exit IP(s), '+ok+'/'+results.length+' ok';
 }
 async function main(){
