@@ -141,9 +141,14 @@ check() {
 }
 
 # ---- run all checks concurrently ----
-SEL=$(printf '%s\n' "$SITES" | while IFS='|' read -r g l t m; do
-  case " $GROUPS_SEL " in *" $g "*) echo "$g|$l|$t|$m" ;; esac
-done)
+# bash 3.2 (macOS) can't parse `case` inside $( ), so filter in a function
+in_sel() { case " $GROUPS_SEL " in *" $1 "*) return 0 ;; esac; return 1; }
+select_sites() {
+  printf '%s\n' "$SITES" | while IFS='|' read -r g l t m; do
+    if in_sel "$g"; then echo "$g|$l|$t|$m"; fi
+  done
+}
+SEL=$(select_sites)
 i=0
 while IFS='|' read -r g l t m; do
   [ -z "$g" ] && continue
