@@ -199,9 +199,6 @@ ip_color() {
   shift $(( k % np )); printf '%s[%sm%s%s' "$E" "$1" "$ip" "$R"
 }
 
-TOTAL=$(wc -l <"$TMP/norm" | tr -d ' ')
-OKN=$(awk -F'|' '$3=="ok"' "$TMP/norm" | wc -l | tr -d ' ')
-NIPS=$(wc -l <"$TMP/ips" | tr -d ' ')
 
 # ---- JSON ----
 if [ $JSON = 1 ]; then
@@ -257,24 +254,3 @@ for grp in $GROUPS_SEL; do
   done
 done
 
-echo
-echo "$(c "$B" "Summary: $NIPS distinct exit IP(s), $OKN/$TOTAL sites reachable")"
-while read -r ip; do
-  [ -z "$ip" ] && continue
-  meta=""
-  if [ $GEO = 1 ]; then
-    IFS='|' read -r cc isp asn <<GEOEOF
-$(geo_of "$ip")
-GEOEOF
-    for x in "$cc" "$isp" "$asn"; do [ -n "$x" ] && meta="${meta:+$meta · }$x"; done
-  fi
-  echo "  $(ip_color "$ip")${meta:+  $(c "$D" "$meta")}"
-  cnt=$(awk -F'|' -v ip="$ip" '$4==ip' "$TMP/norm" | wc -l | tr -d ' ')
-  sites=$(awk -F'|' -v ip="$ip" '$4==ip{printf "%s%s", (n++?", ":""), $2}' "$TMP/norm")
-  echo "    $(c "$D" "($cnt)") $sites"
-done <"$TMP/ips" 3<&-
-FAILED=$(awk -F'|' '$3!="ok"{printf "%s%s", (n++?", ":""), $2}' "$TMP/norm")
-[ -n "$FAILED" ] && echo "  $(c "$RED" failed) $(c "$D" "($((TOTAL - OKN)))") $FAILED"
-echo
-if [ "$NIPS" -gt 1 ]; then echo "$(c "$YEL" "⚠ Split routing detected: different sites see different exit IPs.")"
-elif [ "$NIPS" -eq 1 ]; then echo "$(c "$GRN" "✓ All reachable sites see the same exit IP.")"; fi

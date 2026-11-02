@@ -22,11 +22,6 @@ td.st{width:20%}
 .lat-g{color:#a6e3a1}.lat-y{color:#f9e2af}.lat-r{color:#f38ba8}
 .pal0{color:#a6e3a1}.pal1{color:#94e2d5}.pal2{color:#cba6f7}.pal3{color:#f9e2af}
 .pal4{color:#89b4fa}.pal5{color:#f38ba8}.pal6{color:#a6e3a1}.pal7{color:#89dceb}
-#sum{margin-top:16px}
-#sum .ip{font-weight:700}
-#sum .meta{color:#6c7086}
-#sum .sites{color:#6c7086;padding-left:2ch;margin-bottom:4px}
-#verdict{margin-top:10px}
 .foot{margin-top:22px;color:#585b70;font-size:12px;line-height:1.6}
 .foot a{color:#585b70}
 .busy{color:#6c7086}
@@ -35,8 +30,6 @@ td.st{width:20%}
 <body>
 <h1>ipcheck <span id="hdr">— checking…</span></h1>
 <div id="out" class="busy">loading…</div>
-<div id="sum"></div>
-<div id="verdict"></div>
 <div class="foot">
 curl -fsSL __ORIGIN__/sh | bash<br>
 npx @saltand/ipcheck
@@ -167,21 +160,7 @@ function render(results, geoMap){
   }
   document.getElementById('out').innerHTML=html;
   const ok=results.filter(r=>r.ok).length;
-  let sum='<div><b>Summary:</b> '+ips.length+' distinct exit IP(s), '+ok+'/'+results.length+' sites reachable</div>';
-  for(const ip of ips){
-    const g=geoMap[ip];
-    const meta=g?[g.country,g.isp,g.asn].filter(Boolean).join(' · '):'';
-    const sites=results.filter(r=>r.ip===ip).map(r=>r.site);
-    sum+='<div class="ip '+ipCls(ip)+'">'+esc(ip)+(meta?' <span class="meta">'+esc(meta)+'</span>':'')+'</div>';
-    sum+='<div class="sites">('+sites.length+') '+esc(sites.join(', '))+'</div>';
-  }
-  const failed=results.filter(r=>!r.ok);
-  if(failed.length) sum+='<div><span class="err">failed</span> <span class="dim">('+failed.length+') '+esc(failed.map(r=>r.site).join(', '))+'</span></div>';
-  document.getElementById('sum').innerHTML=sum;
-  const v=document.getElementById('verdict');
-  if(ips.length>1) v.innerHTML='<span class="lat-y">⚠ Split routing detected: different sites see different exit IPs.</span>';
-  else if(ips.length===1) v.innerHTML='<span class="ok">✓ All reachable sites see the same exit IP.</span>';
-  else v.innerHTML='<span class="err">No reachable sites.</span>';
+  const ok=results.filter(r=>r.ok).length;
   document.getElementById('hdr').textContent='— '+(ips.length)+' exit IP(s), '+ok+'/'+results.length+' ok';
 }
 async function main(){

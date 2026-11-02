@@ -136,19 +136,6 @@ function render(results, geoMap, opts) {
     out.push(c.dim(line(head)));
     for (const i of idx) out.push(line(rows[i]));
   }
-  const ok = results.filter(r => r.ok).length;
-  out.push('', c.bold(`Summary: ${ips.length} distinct exit IP(s), ${ok}/${results.length} sites reachable`));
-  for (const ip of ips) {
-    const g = geoMap[ip];
-    const meta = g ? [g.country, g.isp, g.asn].filter(Boolean).join(' · ') : '';
-    const sites = results.filter(r => r.ip === ip).map(r => r.site);
-    out.push(`  ${ipColor(ip)}${meta ? '  ' + c.dim(meta) : ''}`);
-    out.push(`    ${c.dim(`(${sites.length})`)} ${sites.join(', ')}`);
-  }
-  const failed = results.filter(r => !r.ok);
-  if (failed.length) out.push(`  ${c.red('failed')} ${c.dim(`(${failed.length})`)} ${failed.map(r => r.site).join(', ')}`);
-  if (ips.length > 1) out.push('', c.yellow('⚠ Split routing detected: different sites see different exit IPs.'));
-  else if (ips.length === 1) out.push('', c.green('✓ All reachable sites see the same exit IP.'));
   return out.join('\n');
 }
 
